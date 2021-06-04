@@ -103,7 +103,7 @@ contract BarOwners {
     function _invest(uint256 _amount) internal {
         require(block.timestamp < end, "Cannot invest after investment period");
         // Using remaining funds might create a bug in the code
-        // Using 'startupCost - totalEquity' prevents overpaying
+        // Using 'startupCost - availableFunds' prevents overpaying
         require(
             _amount <= startupCost &&
                 _amount <= startupCost.sub(availableFunds),
