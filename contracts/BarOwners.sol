@@ -21,7 +21,7 @@ contract BarOwners {
 
     State public state;
     uint256 public nextOwnerId;
-    uint256 public totalEquity;
+    // uint256 public totalEquity;
     uint256 public availableFunds;
     uint256 public remainingFunds;
     string public barName;
@@ -83,6 +83,13 @@ contract BarOwners {
         nextOwnerId++;
     }
 
+    function payStartupCost() external ownerOnly {
+        require(availableFunds == startupCost, "Start up cost must be payed");
+        require(block.timestamp > end, "Can only pay after investment period");
+        startupCost = startupCost.sub(availableFunds);
+        state = State.ACTIVE;
+    }
+
     function _addOwner(
         address _ownerAddr,
         uint256 _id,
@@ -95,21 +102,21 @@ contract BarOwners {
 
     function _invest(uint256 _amount) internal {
         require(block.timestamp < end, "Cannot invest after investment period");
+        // Using remaining funds might create a bug in the code
+        // Using 'startupCost - totalEquity' prevents overpaying
         require(
-            _amount <= startupCost && _amount <= startupCost.sub(totalEquity),
-            "Amount must be <= startupCost"
+            _amount <= startupCost &&
+                _amount <= startupCost.sub(availableFunds),
+            "Amount must be <= remaining funds"
         );
         isOwner[msg.sender] = true;
         shares[msg.sender] = owners[nextOwnerId].equity = owners[nextOwnerId]
             .equity
             .add(_amount);
-        totalEquity = totalEquity.add(_amount);
         availableFunds = availableFunds.add(_amount);
         remainingFunds = startupCost.sub(availableFunds);
     }
 
-    // Idk what im doing with this right now
-    // Should be helpful for later functions
     modifier ownerOnly() {
         require(isOwner[msg.sender] == true, "Must be bar owner");
         _;
