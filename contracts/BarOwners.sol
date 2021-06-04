@@ -11,6 +11,15 @@ contract BarOwners {
         uint256 equity;
     }
 
+    // For investment period
+    enum State {INACTIVE, ACTIVE}
+
+    // What to do
+    // 1. Equity
+    // 2. Opt-out of ownership
+    // 3. Realocate equity
+
+    State public state;
     uint256 public nextOwnerId;
     uint256 public totalEquity;
     uint256 public availableFunds;
@@ -40,6 +49,20 @@ contract BarOwners {
         barName = _barName;
         startupCost = _startupCost;
         end = block.timestamp.add(_investmentTime);
+        state = State.INACTIVE;
+    }
+
+    function getOwners() external view returns (Owner[] memory) {
+        Owner[] memory _owners = new Owner[](ownerList.length);
+        for (uint256 i = 0; i < _owners.length; i++) {
+            _owners[i] = Owner(
+                owners[ownerList[i]].addr,
+                owners[ownerList[i]].id,
+                owners[ownerList[i]].name,
+                owners[ownerList[i]].equity
+            );
+        }
+        return _owners;
     }
 
     function createNewOwner(string calldata _name) external payable {
@@ -60,19 +83,6 @@ contract BarOwners {
         nextOwnerId++;
     }
 
-    function getOwners() external view returns (Owner[] memory) {
-        Owner[] memory _owners = new Owner[](ownerList.length);
-        for (uint256 i = 0; i < _owners.length; i++) {
-            _owners[i] = Owner(
-                owners[ownerList[i]].addr,
-                owners[ownerList[i]].id,
-                owners[ownerList[i]].name,
-                owners[ownerList[i]].equity
-            );
-        }
-        return _owners;
-    }
-
     function _addOwner(
         address _ownerAddr,
         uint256 _id,
@@ -83,7 +93,6 @@ contract BarOwners {
         ownerList.push(_id);
     }
 
-    // Integer overflow problem??
     function _invest(uint256 _amount) internal {
         require(block.timestamp < end, "Cannot invest after investment period");
         require(
