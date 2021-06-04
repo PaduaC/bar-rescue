@@ -2,7 +2,7 @@
 pragma solidity ^0.8.1;
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract BarOwners {
+contract BarStartup {
     using SafeMath for uint256;
     struct Owner {
         address addr;
@@ -83,12 +83,24 @@ contract BarOwners {
         nextOwnerId++;
     }
 
-    function payStartupCost() external ownerOnly {
+    function payStartupCost() external ownerOnly afterInvestmentPeriod {
         require(availableFunds == startupCost, "Start up cost must be payed");
-        require(block.timestamp > end, "Can only pay after investment period");
         startupCost = startupCost.sub(availableFunds);
         state = State.ACTIVE;
     }
+
+    // WORK IN PROGRESS
+    /* function removeOwner(uint _id)
+        external
+        ownerOnly
+        afterInvestmentPeriod
+        returns(Owner[] memory)
+    {
+        Owner[] memory _owners = new Owner[](ownerList.length);
+        _owners[_id] = _owners[_owners.length.sub(1)];
+        _owners.pop();
+        return _owners;
+    } */
 
     function _addOwner(
         address _ownerAddr,
@@ -110,15 +122,19 @@ contract BarOwners {
             "Amount must be <= remaining funds"
         );
         isOwner[msg.sender] = true;
-        shares[msg.sender] = owners[nextOwnerId].equity = owners[nextOwnerId]
-            .equity
-            .add(_amount);
+        owners[nextOwnerId].equity = owners[nextOwnerId].equity.add(_amount);
+        shares[msg.sender] = owners[nextOwnerId].equity;
         availableFunds = availableFunds.add(_amount);
         remainingFunds = startupCost.sub(availableFunds);
     }
 
     modifier ownerOnly() {
         require(isOwner[msg.sender] == true, "Must be bar owner");
+        _;
+    }
+
+    modifier afterInvestmentPeriod() {
+        require(block.timestamp > end, "Can only call after investment period");
         _;
     }
 }
