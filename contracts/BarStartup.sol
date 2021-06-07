@@ -27,8 +27,13 @@ contract BarStartup {
     string public barName;
     uint256 private startupCost;
     uint256 private end;
+    uint256 private remainingEquity;
 
-    uint256[] public ownerList;
+    // Stores all owner ID's
+    uint256[] public ownerIdList;
+
+    // Stores owner structs
+    Owner[] public ownerProfileList;
 
     mapping(address => uint256) public shares;
     mapping(uint256 => Owner) public owners;
@@ -53,13 +58,13 @@ contract BarStartup {
     }
 
     function getOwners() external view returns (Owner[] memory) {
-        Owner[] memory _owners = new Owner[](ownerList.length);
+        Owner[] memory _owners = new Owner[](ownerIdList.length);
         for (uint256 i = 0; i < _owners.length; i++) {
             _owners[i] = Owner(
-                owners[ownerList[i]].addr,
-                owners[ownerList[i]].id,
-                owners[ownerList[i]].name,
-                owners[ownerList[i]].equity
+                owners[ownerIdList[i]].addr,
+                owners[ownerIdList[i]].id,
+                owners[ownerIdList[i]].name,
+                owners[ownerIdList[i]].equity
             );
         }
         return _owners;
@@ -90,17 +95,44 @@ contract BarStartup {
     }
 
     // WORK IN PROGRESS
-    /* function removeOwner(uint _id)
-        external
-        ownerOnly
-        afterInvestmentPeriod
-        returns(Owner[] memory)
-    {
-        Owner[] memory _owners = new Owner[](ownerList.length);
-        _owners[_id] = _owners[_owners.length.sub(1)];
-        _owners.pop();
-        return _owners;
-    } */
+    // This function is for situations like hostile takeovers
+    function removeOwner(uint256 _id) external ownerOnly afterInvestmentPeriod {
+        // I don't like have 2 for loops. It may use up a large amount of gas
+        // I plan on fixing this later
+
+        // Store owner equity in remainingEquity
+        remainingEquity = remainingEquity.add(owners[_id].equity);
+        // Doing this causes the former owner to give up their share in the bar
+        owners[_id].equity = owners[_id].equity.sub(remainingEquity);
+
+        for (uint256 i = _id; i < ownerProfileList.length; i++) {
+            ownerProfileList[i] = ownerProfileList[i.add(1)];
+        }
+        delete ownerProfileList[ownerProfileList.length.sub(1)];
+        ownerProfileList.pop();
+
+        for (uint256 i = _id; i < ownerIdList.length; i++) {
+            ownerIdList[i] = ownerIdList[i.add(1)];
+        }
+        delete ownerIdList[ownerIdList.length.sub(1)];
+        ownerIdList.pop();
+
+        isOwner[owners[_id].addr] = false;
+
+        _divideRemainingShares(_id);
+    }
+
+    // When an owner is removed
+    function _divideRemainingShares(uint256 _id) internal {
+        require(remainingEquity > 0, "Must have unused equity");
+        require(owners[_id].addr == address(0), "Owner must be removed");
+        uint256 dividend = remainingEquity.div(ownerIdList.length);
+        for (uint256 i = 0; i < ownerIdList.length; i++) {
+            owners[ownerIdList[i]].equity = owners[ownerIdList[i]].equity.add(
+                dividend
+            );
+        }
+    }
 
     function _addOwner(
         address _ownerAddr,
@@ -109,13 +141,14 @@ contract BarStartup {
         uint256 _equity
     ) internal {
         owners[_id] = Owner(_ownerAddr, _id, _name, _equity);
-        ownerList.push(_id);
+        ownerIdList.push(_id);
+        ownerProfileList.push(owners[_id]);
     }
 
     function _invest(uint256 _amount) internal {
         require(block.timestamp < end, "Cannot invest after investment period");
-        // Using remaining funds might create a bug in the code
-        // Using 'startupCost - availableFunds' prevents overpaying
+        // Using remainingFunds create a bug in the code
+        // Using 'startupCost - availableFunds' prevents this bug
         require(
             _amount <= startupCost &&
                 _amount <= startupCost.sub(availableFunds),
