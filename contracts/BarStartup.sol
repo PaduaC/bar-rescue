@@ -29,11 +29,8 @@ contract BarStartup {
     uint256 private end;
     uint256 private remainingEquity;
 
-    // Stores all owner ID's
-    uint256[] public ownerIdList;
-
     // Stores owner structs
-    Owner[] public ownerProfileList;
+    Owner[] public ownerList;
 
     mapping(address => uint256) public shares;
     mapping(uint256 => Owner) public owners;
@@ -58,13 +55,13 @@ contract BarStartup {
     }
 
     function getOwners() external view returns (Owner[] memory) {
-        Owner[] memory _owners = new Owner[](ownerIdList.length);
+        Owner[] memory _owners = new Owner[](ownerList.length);
         for (uint256 i = 0; i < _owners.length; i++) {
             _owners[i] = Owner(
-                owners[ownerIdList[i]].addr,
-                owners[ownerIdList[i]].id,
-                owners[ownerIdList[i]].name,
-                owners[ownerIdList[i]].equity
+                owners[ownerList[i].id].addr,
+                owners[ownerList[i].id].id,
+                owners[ownerList[i].id].name,
+                owners[ownerList[i].id].equity
             );
         }
         return _owners;
@@ -105,17 +102,11 @@ contract BarStartup {
         // Doing this causes the former owner to give up their share in the bar
         owners[_id].equity = owners[_id].equity.sub(remainingEquity);
 
-        for (uint256 i = _id; i < ownerProfileList.length; i++) {
-            ownerProfileList[i] = ownerProfileList[i.add(1)];
+        for (uint256 i = _id; i < ownerList.length; i++) {
+            ownerList[i] = ownerList[i.add(1)];
         }
-        delete ownerProfileList[ownerProfileList.length.sub(1)];
-        ownerProfileList.pop();
-
-        for (uint256 i = _id; i < ownerIdList.length; i++) {
-            ownerIdList[i] = ownerIdList[i.add(1)];
-        }
-        delete ownerIdList[ownerIdList.length.sub(1)];
-        ownerIdList.pop();
+        delete ownerList[ownerList.length.sub(1)];
+        ownerList.pop();
 
         isOwner[owners[_id].addr] = false;
 
@@ -126,9 +117,9 @@ contract BarStartup {
     function _divideRemainingShares(uint256 _id) internal {
         require(remainingEquity > 0, "Must have unused equity");
         require(owners[_id].addr == address(0), "Owner must be removed");
-        uint256 dividend = remainingEquity.div(ownerIdList.length);
-        for (uint256 i = 0; i < ownerIdList.length; i++) {
-            owners[ownerIdList[i]].equity = owners[ownerIdList[i]].equity.add(
+        uint256 dividend = remainingEquity.div(ownerList.length);
+        for (uint256 i = 0; i < ownerList.length; i++) {
+            owners[ownerList[i].id].equity = owners[ownerList[i].id].equity.add(
                 dividend
             );
         }
@@ -141,8 +132,7 @@ contract BarStartup {
         uint256 _equity
     ) internal {
         owners[_id] = Owner(_ownerAddr, _id, _name, _equity);
-        ownerIdList.push(_id);
-        ownerProfileList.push(owners[_id]);
+        ownerList.push(owners[_id]);
     }
 
     function _invest(uint256 _amount) internal {
