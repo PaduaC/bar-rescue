@@ -14,13 +14,8 @@ contract BarStartup {
     // For investment period
     enum State {INACTIVE, ACTIVE}
 
-    // What to do
-    // 1. Equity
-    // 2. Opt-out of ownership
-    // 3. Realocate equity
-
     State public state;
-    uint256 public nextOwnerId;
+    uint256 public nextOwnerId = 0;
     // uint256 public totalEquity;
     uint256 public availableFunds;
     uint256 public remainingFunds;
@@ -74,15 +69,6 @@ contract BarStartup {
         );
         owners[nextOwnerId] = Owner(msg.sender, nextOwnerId, _name, 0);
         _invest(msg.value);
-        emit NewOwner(
-            msg.sender,
-            nextOwnerId,
-            _name,
-            owners[nextOwnerId].equity
-        );
-        _addOwner(msg.sender, nextOwnerId, _name, owners[nextOwnerId].equity);
-
-        nextOwnerId++;
     }
 
     function payStartupCost() external ownerOnly afterInvestmentPeriod {
@@ -125,16 +111,6 @@ contract BarStartup {
         }
     }
 
-    function _addOwner(
-        address _ownerAddr,
-        uint256 _id,
-        string memory _name,
-        uint256 _equity
-    ) internal {
-        owners[_id] = Owner(_ownerAddr, _id, _name, _equity);
-        ownerList.push(owners[_id]);
-    }
-
     function _invest(uint256 _amount) internal {
         require(block.timestamp < end, "Cannot invest after investment period");
         // Using remainingFunds create a bug in the code
@@ -149,6 +125,29 @@ contract BarStartup {
         shares[msg.sender] = owners[nextOwnerId].equity;
         availableFunds = availableFunds.add(_amount);
         remainingFunds = startupCost.sub(availableFunds);
+        _addOwner(
+            msg.sender,
+            nextOwnerId,
+            owners[nextOwnerId].name,
+            owners[nextOwnerId].equity
+        );
+        nextOwnerId.add(1);
+    }
+
+    function _addOwner(
+        address _ownerAddr,
+        uint256 _id,
+        string memory _name,
+        uint256 _equity
+    ) internal {
+        owners[_id] = Owner(_ownerAddr, _id, _name, _equity);
+        ownerList.push(owners[_id]);
+        emit NewOwner(
+            msg.sender,
+            nextOwnerId,
+            _name,
+            owners[nextOwnerId].equity
+        );
     }
 
     modifier ownerOnly() {

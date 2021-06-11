@@ -14,6 +14,7 @@ contract Payroll {
         string title;
     }
 
+    address public admin;
     uint256 public nextEmployeeId;
     Employee[] public employeeList;
     mapping(uint256 => Employee) public employees;
@@ -26,6 +27,10 @@ contract Payroll {
     );
 
     event EmployeePaid(uint256 id, address indexed addr, uint256 amount);
+
+    constructor() {
+        admin = msg.sender;
+    }
 
     function getEmployees() external view returns (Employee[] memory) {
         Employee[] memory _employees = new Employee[](employeeList.length);
@@ -45,7 +50,7 @@ contract Payroll {
         address _addr,
         string memory _name,
         string memory _title
-    ) external {
+    ) external adminOnly {
         employees[nextEmployeeId] = Employee(
             nextEmployeeId,
             _addr,
@@ -57,16 +62,25 @@ contract Payroll {
         nextEmployeeId.add(1);
     }
 
-    function payEmployee(uint256 _id, uint256 _amount) external payable {
+    function payEmployee(uint256 _id, uint256 _amount)
+        external
+        payable
+        adminOnly
+    {
         payable(employees[_id].addr).transfer(_amount);
         emit EmployeePaid(employees[_id].id, employees[_id].addr, _amount);
     }
 
-    function removeEmployee(uint256 _id) external {
+    function removeEmployee(uint256 _id) external adminOnly {
         for (uint256 i = _id; i < employeeList.length; i++) {
             employeeList[i] = employeeList[i.add(1)];
         }
         delete employeeList[employeeList.length.sub(1)];
         employeeList.pop();
+    }
+
+    modifier adminOnly() {
+        require(admin == msg.sender, "Admin only");
+        _;
     }
 }
